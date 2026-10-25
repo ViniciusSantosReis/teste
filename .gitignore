@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+
+# Ferramentas
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Ambiente — nunca versionar credencial
+.env
+.env.local
+.env.*.local
+
+# Oracle wallet
+wallet/
+*.sso
+*.pem
+
+# Editores / SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Dumps e backups locais
+*.dmp
+*.dump
+backups/

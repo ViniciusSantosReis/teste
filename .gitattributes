@@ -1,0 +1,16 @@
+# Normaliza o fim de linha: a equipe é Windows, os containers são Linux.
+* text=auto eol=lf
+
+# Precisam de LF para funcionar dentro do container.
+*.sh        text eol=lf
+Dockerfile  text eol=lf
+Makefile    text eol=lf
+Caddyfile   text eol=lf
+
+# Binários — não tocar.
+*.png binary
+*.jpg binary
+*.webp binary
+*.pdf binary
+*.ico binary
+*.dmp binary

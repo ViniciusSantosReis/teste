@@ -1,0 +1,39 @@
+# Sobreposição de produção:  docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# Tira o --reload e o volume de código, e põe o Caddy na frente (TLS + headers de segurança).
+# O build estático do frontend é servido pelo Caddy a partir de um volume alimentado
+# pelo pipeline do repositório intranet-decos-web.
+
+services:
+  backend:
+    build: .
+    restart: unless-stopped
+    volumes: []
+    ports: []
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers ${UVICORN_WORKERS:-4}
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on: [backend]
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./infra/Caddyfile:/etc/caddy/Caddyfile:ro
+      - frontend_dist:/srv/frontend:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [decos]
+
+  oracle:
+    ports: []
+
+  minio:
+    ports: []
+
+  redis:
+    ports: []
+
+volumes:
+  frontend_dist:
+    external: true
+  caddy_data:
+  caddy_config:

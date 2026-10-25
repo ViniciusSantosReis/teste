@@ -1,0 +1,89 @@
+# Infraestrutura completa de desenvolvimento + a API.
+# O repositório do frontend (intranet-decos-web) sobe à parte e se liga
+# a este ambiente pela rede externa "decos".
+
+services:
+  oracle:
+    image: gvenzl/oracle-free:23-slim
+    environment:
+      ORACLE_PASSWORD: ${ORACLE_ROOT_PASSWORD:-oracle}
+      APP_USER: INTRANET_APP
+      APP_USER_PASSWORD: senha
+    ports: ["1521:1521"]
+    volumes: ["oracle_data:/opt/oracle/oradata"]
+    networks: [decos]
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-minioadmin}
+    ports: ["9000:9000", "9001:9001"]
+    volumes: ["minio_data:/data"]
+    networks: [decos]
+
+  # Cria os buckets e LIGA O VERSIONAMENTO na criação.
+  # Ligar depois não recupera o que já foi sobrescrito.
+  minio-init:
+    image: minio/mc:latest
+    depends_on: [minio]
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 $${S3_ACCESS_KEY} $${S3_SECRET_KEY};
+      for b in decos-midia decos-documentos decos-avatares decos-backup; do
+        mc mb --ignore-existing local/$$b;
+        mc version enable local/$$b;
+      done;
+      "
+    env_file: [.env]
+    networks: [decos]
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    networks: [decos]
+
+  glitchtip:
+    image: glitchtip/glitchtip:latest
+    depends_on: [glitchtip-db, redis]
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@glitchtip-db:5432/glitchtip
+      SECRET_KEY: ${SECRET_KEY}
+      REDIS_URL: redis://redis:6379/1
+    ports: ["8080:8080"]
+    networks: [decos]
+
+  glitchtip-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: glitchtip
+    volumes: ["glitchtip_data:/var/lib/postgresql/data"]
+    networks: [decos]
+
+  backend:
+    build: .
+    depends_on:
+      oracle: {condition: service_healthy}
+      minio: {condition: service_started}
+      redis: {condition: service_started}
+    env_file: [.env]
+    ports: ["8000:8000"]
+    volumes: ["./:/app"]
+    networks: [decos]
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  oracle_data:
+  minio_data:
+  glitchtip_data:
+
+networks:
+  decos:
+    name: decos
